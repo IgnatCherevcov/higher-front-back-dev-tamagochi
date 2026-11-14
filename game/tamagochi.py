@@ -1,73 +1,139 @@
-"""Модуль с интерфейсом и реализациями класса тамагочи"""
+"""Состояние питомца и действия с ним."""
 
 from abc import ABC, abstractmethod
+from random import random
 
+from .exceptions import TamagochiIsGone
 from .models import Food, Medicine
 
 
 class AbstractTamagochi(ABC):
-    """Интерфейс логики тамагочи"""
+    """Контракт управления питомцем."""
 
     @abstractmethod
     def feed(self, food: Food) -> None:
-        """
-        Абстрактный метод для кормления тамагочи
-
-        :param food: объект еды для кормления
-        """
-        raise NotImplementedError
+        """Накормить питомца."""
 
     @abstractmethod
     def play(self) -> None:
-        """Абстрактный метод для игры с тамагочи"""
-        raise NotImplementedError
+        """Поиграть с питомцем."""
 
     @abstractmethod
     def rest(self) -> None:
-        """Абстрактный метод для отдыха тамагочи"""
-        raise NotImplementedError
+        """Дать питомцу отдохнуть."""
 
     @abstractmethod
     def heal(self, medicine: Medicine) -> None:
-        """
-        Абстрактный метод для лечения тамагочи
-
-        :param medicine: лекарство для лечения
-        """
-        raise NotImplementedError
+        """Применить лекарство."""
 
     @property
     @abstractmethod
     def status(self) -> dict[str, int]:
-        """
-        Абстрактное свойство для доступа ко всем состояниям тамагочи
-
-        :return: словарь со всеми состояниями тамагочи
-        """
-        raise NotImplementedError
+        """Вернуть текущие показатели питомца."""
 
     @abstractmethod
     def is_alive(self) -> bool:
-        """
-        Абстрактный метод для проверки жив ли тамагочи
-
-        :return: True если жив, иначе False
-        """
-        raise NotImplementedError
+        """Проверить, жив ли питомец."""
 
     @abstractmethod
     def is_sick(self) -> bool:
-        """
-        Абстрактный метод для проверки, не заболел ли тамагочи
-
-        :return: True если тамагочи болеет, иначе False
-        """
-        raise NotImplementedError
+        """Проверить состояние болезни."""
 
     @abstractmethod
     def update(self) -> None:
+        """Обновить потребности питомца за один ход."""
+
+
+class SimpleTamagochi(AbstractTamagochi):
+    """Питомец с голодом, усталостью, здоровьем и энергией."""
+
+    def __init__(self, name: str = 'Пиксель') -> None:
+        """Создать питомца с начальными показателями."""
+        self.name = name
+        self.hunger = 0
+        self.fatigue = 0
+        self.hp = 100
+        self.energy = 100
+        self._sick = False
+
+    @property
+    def status(self) -> dict[str, int]:
+        """Вернуть независимую копию характеристик питомца."""
+        return {
+            'hunger': self.hunger,
+            'fatigue': self.fatigue,
+            'hp': self.hp,
+            'energy': self.energy,
+        }
+
+    def is_alive(self) -> bool:
+        """Вернуть False после падения здоровья ниже нуля."""
+        return self.hp >= 0
+
+    def is_sick(self) -> bool:
+        """Вернуть признак болезни."""
+        return self._sick
+
+    def _check_alive(self) -> None:
+        """Прервать действия, если питомец погиб.
+
+        Raises:
+            TamagochiIsGone: Если питомец погиб.
         """
-        Абстрактный метод для обновления состояний тамагочи.
-        Должен использоваться после каждого взаимодействия с тамагочи
+        if not self.is_alive():
+            raise TamagochiIsGone('Питомец погиб')
+
+    def feed(self, food: Food) -> None:
+        """Уменьшить голод на величину насыщения еды."""
+        self._check_alive()
+        self.hunger = max(0, self.hunger - food.satiety)
+        self.energy = max(0, self.energy - 2)
+
+    def play(self) -> None:
+        """Улучшить настроение ценой энергии и голода."""
+        self._check_alive()
+        if self.energy < 10:
+            raise ValueError('Недостаточно энергии для игры')
+        self.energy -= 10
+        self.fatigue = min(100, self.fatigue + 7)
+        self.hunger = min(100, self.hunger + 5)
+
+    def rest(self) -> None:
+        """Восстановить энергию и снизить усталость."""
+        self._check_alive()
+        recovery = 12 if self._sick else 25
+        self.energy = min(100, self.energy + recovery)
+        self.fatigue = max(0, self.fatigue - recovery)
+
+    def heal(self, medicine: Medicine) -> None:
+        """Восстановить здоровье, расходуя применение лекарства.
+
+        Raises:
+            ValueError: Если лекарство закончилось.
         """
-        raise NotImplementedError
+        self._check_alive()
+        if medicine.is_empty():
+            raise ValueError('Лекарство закончилось')
+        medicine.uses += 1
+        self.hp = min(100, self.hp + medicine.heal_hp)
+        self._sick = False
+
+    def update(self) -> None:
+        """Обновить потребности, проверить болезнь и гибель.
+
+        Raises:
+            TamagochiIsGone: Если здоровье стало ниже нуля.
+        """
+        self._check_alive()
+        self.hunger = min(100, self.hunger + 6)
+        self.fatigue = min(100, self.fatigue + 4)
+        self.energy = max(0, self.energy - 4)
+        if not self._sick and random() < 0.04:
+            self._sick = True
+        damage = 4 if self._sick else 0
+        if self.hunger >= 80:
+            damage += 5
+        if self.fatigue >= 85 or self.energy == 0:
+            damage += 4
+        self.hp -= damage
+        self._check_alive()
