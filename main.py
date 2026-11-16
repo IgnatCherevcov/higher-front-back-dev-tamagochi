@@ -1,28 +1,64 @@
-"""Точка входа консольной игры «Тамагочи»."""
+"""Консольный интерфейс игры «Тамагочи»."""
+
+from collections.abc import Sequence
 
 from game.clicker import SimpleRandomClicker
-from game.exceptions import NotEnoughMoney, TamagochiIsGone
-from game.game import SimpleGame
+from game.constants import FOOD_CATALOG, MEDICINE_CATALOG
+from game.exceptions import GameError, TamagochiIsGone
+from game.game import ShopItem, SimpleGame
 from game.models import Food, Medicine
 from game.tamagochi import SimpleTamagochi
 
+STATUS_TEMPLATE = (
+    'Голод: {hunger}, усталость: {fatigue}, '
+    'здоровье: {hp}, энергия: {energy}, монеты: {coins}'
+)
+MENU = (
+    '1. Работать\n2. Купить еду\n3. Купить лекарство\n'
+    '4. Кормить\n5. Лечить\n6. Играть\n7. Отдыхать\n0. Выход'
+)
+
+
+def select_item(items: Sequence[ShopItem], title: str) -> ShopItem | None:
+    """Получить выбранный предмет от пользователя.
+
+    Args:
+        items: Предметы магазина или инвентаря.
+        title: Название предлагаемого списка.
+
+    Returns:
+        Выбранный предмет либо None при отмене или неверном номере.
+    """
+    if not items:
+        print('Список пуст')
+        return None
+    print(title)
+    for number, item in enumerate(items, start=1):
+        print(f'{number}. {item}')
+    answer = input('Номер (0 — отмена): ').strip()
+    if not answer.isdecimal():
+        print('Нужно ввести номер')
+        return None
+    index = int(answer)
+    if index == 0:
+        return None
+    if not 1 <= index <= len(items):
+        print('Такого номера нет')
+        return None
+    return items[index - 1]
+
 
 def main() -> None:
-    """Запустить игру и обрабатывать команды до выхода или гибели питомца."""
-    all_food = [
-        Food(name='Бургер', satiety=20, price=40),
-        Food(name='Салат', satiety=10, price=20),
-        Food(name='Яблоко', satiety=10, price=15),
-    ]
-    all_medicine = [
-        Medicine(name='Ибупрофен', price=30, heal_hp=20, number_of_uses=2),
-    ]
+    """Запустить консольную игру и обрабатывать команды пользователя."""
+    all_food = [Food(*entry) for entry in FOOD_CATALOG]
+    all_medicine = [Medicine(*entry) for entry in MEDICINE_CATALOG]
     game = SimpleGame(
-        SimpleTamagochi(), SimpleRandomClicker(10, 20),
-        all_food=all_food, all_medicine=all_medicine,
+        tamagochi=SimpleTamagochi(),
+        clicker=SimpleRandomClicker(),
+        all_food=all_food,
+        all_medicine=all_medicine,
+        selector=select_item,
     )
-    print('Добро пожаловать в Тамагочи-кликер!')
-
     actions = {
         '2': game.buy_food,
         '3': game.buy_medicine,
@@ -31,35 +67,31 @@ def main() -> None:
         '6': game.play_with_tamagochi,
         '7': game.rest_tamagochi,
     }
+    output = 'Добро пожаловать в Тамагочи-кликер!'
     while True:
-        status = game.get_status()
+        if output:
+            print(output)
+            output = ''
         print(f'\nЕда: {game.food}\nЛекарства: {game.medicine}')
-        print(
-            f"Голод: {status['hunger']}, усталость: {status['fatigue']}, "
-            f"здоровье: {status['hp']}, энергия: {status['energy']}, "
-            f"монеты: {status['coins']}"
-        )
+        print(STATUS_TEMPLATE.format(**game.get_status()))
         if game.tamagochi.is_sick():
             print('Питомец заболел. Отдых менее эффективен.')
-        print('1. Работать\n2. Купить еду\n3. Купить лекарство')
-        print('4. Кормить\n5. Лечить\n6. Играть\n7. Отдыхать\n0. Выход')
+        print(MENU)
         try:
             command = input('Выберите действие: ').strip()
             if command == '0':
                 break
             if command == '1':
-                income = game.work()
-                print(f'Заработано {income} монет')
-                game.tamagochi.update()
+                output = f'Заработано {game.work()} монет'
             elif command in actions:
                 actions[command]()
             else:
-                print('Неизвестная команда')
-        except (NotEnoughMoney, ValueError) as error:
-            print(error)
+                output = 'Неизвестная команда'
         except TamagochiIsGone:
             print('Игра окончена: питомец погиб.')
             break
+        except GameError as error:
+            output = str(error)
         except (EOFError, KeyboardInterrupt):
             print('\nИгра завершена.')
             break
