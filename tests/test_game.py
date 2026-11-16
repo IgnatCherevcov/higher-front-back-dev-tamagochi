@@ -171,11 +171,42 @@ class TamagochiTests(unittest.TestCase):
         self.assertEqual(self.game.food, [])
         self.assertEqual(self.pet.status['hunger'], 0)
 
-    def test_food_inventory_snapshot(self) -> None:
-        """Копию списка еды нельзя использовать для изменения инвентаря."""
+    def test_food_inventory_reference(self) -> None:
+        """Свойство food предоставляет текущий инвентарь."""
         self._earn(15)
         self.game.buy_food()
-        self.game.food.clear()
+        inventory = self.game.food
+        self.assertIs(inventory, self.game.food)
+        self.assertEqual(inventory, [self.apple])
+
+    def test_feed_removes_selected_object_only(self) -> None:
+        """Кормление удаляет выбранный экземпляр среди равных порций."""
+        first = Food('Яблоко', 10, 15)
+        selected = Food('Яблоко', 10, 15)
+        other = Food('Груша', 10, 15)
+        game = SimpleGame(
+            self.pet,
+            self.clicker,
+            [first, selected, other],
+            [],
+            selector=lambda items, title: items[1],
+        )
+        game.food.extend([first, selected, other])
+        with patch.object(self.pet, 'feed', wraps=self.pet.feed) as feed:
+            game.feed_tamagochi()
+        feed.assert_called_once_with(selected)
+        self.assertIs(feed.call_args.args[0], selected)
+        self.assertEqual(len(game.food), 2)
+        self.assertIs(game.food[0], first)
+        self.assertIs(game.food[1], other)
+
+    def test_feed_only_one_portion_from_two_purchases(self) -> None:
+        """После кормления остальные купленные порции сохраняются."""
+        self._earn(30)
+        self.game.buy_food()
+        self.game.buy_food()
+        self.assertEqual(len(self.game.food), 2)
+        self.game.feed_tamagochi()
         self.assertEqual(self.game.food, [self.apple])
 
     def test_food_model_is_immutable(self) -> None:

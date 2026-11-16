@@ -143,12 +143,12 @@ class SimpleGame(AbstractGame):
 
     @property
     def food(self) -> list[Food]:
-        """Вернуть независимый список продуктов инвентаря.
+        """Вернуть список продуктов в инвентаре.
 
         Returns:
-            Копия списка еды.
+            Список принадлежащих игроку продуктов.
         """
-        return list(self._food)
+        return self._food
 
     @property
     def medicine(self) -> list[Medicine]:
@@ -234,7 +234,10 @@ class SimpleGame(AbstractGame):
         item = self._choose(self._food, 'Еда в сумке:')
         if item is not None:
             self._tamagochi.feed(item)
-            self._food.remove(item)
+            for index, stored in enumerate(self._food):
+                if stored is item:
+                    del self._food[index]
+                    break
             self._tamagochi.update()
 
     def heal_tamagochi(self) -> None:
