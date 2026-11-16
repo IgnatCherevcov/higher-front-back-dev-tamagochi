@@ -15,6 +15,35 @@ ShopItem = Food | Medicine
 ItemSelector = Callable[[Sequence[ShopItem], str], ShopItem | None]
 
 
+def select_item(items: Sequence[ShopItem], title: str) -> ShopItem | None:
+    """Получить выбранный в консоли предмет.
+
+    Args:
+        items: Предметы магазина или инвентаря.
+        title: Название предлагаемого списка.
+
+    Returns:
+        Выбранный предмет либо None при отмене или неверном номере.
+    """
+    if not items:
+        print('Список пуст')
+        return None
+    print(title)
+    for number, item in enumerate(items, start=1):
+        print(f'{number}. {item}')
+    answer = input('Номер (0 — отмена): ').strip()
+    if not answer.isdecimal():
+        print('Нужно ввести номер')
+        return None
+    index = int(answer)
+    if index == 0:
+        return None
+    if not 1 <= index <= len(items):
+        print('Такого номера нет')
+        return None
+    return items[index - 1]
+
+
 class AbstractGame(ABC):
     """Контракт управления игровыми действиями и ресурсами."""
 
@@ -112,7 +141,8 @@ class SimpleGame(AbstractGame):
             clicker: Кликер для получения монет.
             all_food: Список продуктов магазина.
             all_medicine: Список препаратов магазина.
-            selector: Функция выбора предмета без привязки к консоли.
+            selector: Функция выбора предмета. По умолчанию выбор
+                происходит через консоль.
         """
         self._tamagochi = tamagochi
         self._clicker = clicker
@@ -174,9 +204,8 @@ class SimpleGame(AbstractGame):
         Raises:
             InvalidItemSelection: Если выбран отсутствующий предмет.
         """
-        if self._selector is None:
-            return items[0] if items else None
-        selected = self._selector(items, title)
+        selector = self._selector or select_item
+        selected = selector(items, title)
         if selected is not None and not any(
             selected is item for item in items
         ):

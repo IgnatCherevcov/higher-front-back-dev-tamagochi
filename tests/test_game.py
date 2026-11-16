@@ -22,10 +22,10 @@ from game.exceptions import (
     NotEnoughMoney,
     TamagochiIsGone,
 )
-from game.game import AbstractGame, SimpleGame
+from game.game import AbstractGame, SimpleGame, select_item
 from game.models import Food, Medicine
 from game.tamagochi import AbstractTamagochi, SimpleTamagochi
-from main import main, select_item
+from main import main
 
 
 class TamagochiTests(unittest.TestCase):
@@ -42,6 +42,7 @@ class TamagochiTests(unittest.TestCase):
             self.clicker,
             [self.apple],
             [self.pill],
+            selector=lambda items, title: items[0] if items else None,
         )
         no_sickness = patch('game.tamagochi.random', return_value=1)
         no_sickness.start()
