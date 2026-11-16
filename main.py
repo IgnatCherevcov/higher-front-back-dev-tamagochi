@@ -1,11 +1,9 @@
 """Консольный интерфейс игры «Тамагочи»."""
 
-from collections.abc import Sequence
-
 from game.clicker import SimpleRandomClicker
 from game.constants import FOOD_CATALOG, MEDICINE_CATALOG
 from game.exceptions import GameError, TamagochiIsGone
-from game.game import ShopItem, SimpleGame
+from game.game import SimpleGame
 from game.models import Food, Medicine
 from game.tamagochi import SimpleTamagochi
 
@@ -19,35 +17,6 @@ MENU = (
 )
 
 
-def select_item(items: Sequence[ShopItem], title: str) -> ShopItem | None:
-    """Получить выбранный предмет от пользователя.
-
-    Args:
-        items: Предметы магазина или инвентаря.
-        title: Название предлагаемого списка.
-
-    Returns:
-        Выбранный предмет либо None при отмене или неверном номере.
-    """
-    if not items:
-        print('Список пуст')
-        return None
-    print(title)
-    for number, item in enumerate(items, start=1):
-        print(f'{number}. {item}')
-    answer = input('Номер (0 — отмена): ').strip()
-    if not answer.isdecimal():
-        print('Нужно ввести номер')
-        return None
-    index = int(answer)
-    if index == 0:
-        return None
-    if not 1 <= index <= len(items):
-        print('Такого номера нет')
-        return None
-    return items[index - 1]
-
-
 def main() -> None:
     """Запустить консольную игру и обрабатывать команды пользователя."""
     all_food = [Food(*entry) for entry in FOOD_CATALOG]
@@ -57,7 +26,6 @@ def main() -> None:
         clicker=SimpleRandomClicker(),
         all_food=all_food,
         all_medicine=all_medicine,
-        selector=select_item,
     )
     actions = {
         '2': game.buy_food,
